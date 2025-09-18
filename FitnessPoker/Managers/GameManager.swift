@@ -33,11 +33,18 @@ class GameManager: ObservableObject {
     }
 
     func startGame() {
-        guard teamManager.hasPlayers else { return }
+        print("GameManager.startGame() called")
+        print("hasPlayers: \(teamManager.hasPlayers)")
+        guard teamManager.hasPlayers else {
+            print("No players found, exiting startGame")
+            return
+        }
+        print("Starting game...")
         gameState = .playing
         teamManager.reset()
         deck.reset()
         timerManager.start()
+        print("Game started, state: \(gameState)")
     }
 
     func pauseGame() {

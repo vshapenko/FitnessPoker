@@ -26,8 +26,15 @@ class TeamManager: ObservableObject {
     }
 
     func removePlayer(at index: Int) {
-        guard index < players.count else { return }
+        print("removePlayer(at:) called with index: \(index)")
+        print("Current players count: \(players.count)")
+        guard index < players.count else {
+            print("Index \(index) out of bounds")
+            return
+        }
+        let playerName = players[index].name
         players.remove(at: index)
+        print("Removed player: \(playerName), remaining count: \(players.count)")
         if currentPlayerIndex >= players.count && !players.isEmpty {
             currentPlayerIndex = players.count - 1
         } else if players.isEmpty {
@@ -36,8 +43,12 @@ class TeamManager: ObservableObject {
     }
 
     func removePlayer(withId id: UUID) {
+        print("removePlayer(withId:) called with id: \(id)")
         if let index = players.firstIndex(where: { $0.id == id }) {
+            print("Found player at index: \(index)")
             removePlayer(at: index)
+        } else {
+            print("Player with id \(id) not found")
         }
     }
 

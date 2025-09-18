@@ -106,7 +106,9 @@ struct SetupView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 10) {
                 ForEach(gameManager.teamManager.players) { player in
                     PlayerCard(player: player) {
+                        print("Remove player button tapped for: \(player.name)")
                         gameManager.teamManager.removePlayer(withId: player.id)
+                        print("Players remaining: \(gameManager.teamManager.players.count)")
                     }
                 }
             }
@@ -114,7 +116,11 @@ struct SetupView: View {
             TimerSetupView(timerManager: gameManager.timerManager)
 
             Button("Start Game") {
+                print("Start Game button tapped!")
+                print("Has players: \(gameManager.teamManager.hasPlayers)")
+                print("Player count: \(gameManager.teamManager.players.count)")
                 gameManager.startGame()
+                print("Game state after start: \(gameManager.gameState)")
             }
             .buttonStyle(.borderedProminent)
             .font(.title2)
@@ -155,26 +161,11 @@ struct TimerSetupView: View {
             Text("Game Time Limit")
                 .font(.headline)
 
-            HStack {
-                Button("No Limit") {
-                    timerManager.setTimeLimit(0)
-                }
-                .buttonStyle(.bordered)
-
-                Button("5m") {
-                    timerManager.setTimeLimit(300)
-                }
-                .buttonStyle(.bordered)
-
-                Button("10m") {
-                    timerManager.setTimeLimit(600)
-                }
-                .buttonStyle(.bordered)
-
-                Button("15m") {
-                    timerManager.setTimeLimit(900)
-                }
-                .buttonStyle(.bordered)
+            HStack(spacing: 15) {
+                TimerButton(title: "No Limit", seconds: 0, timerManager: timerManager)
+                TimerButton(title: "5m", seconds: 300, timerManager: timerManager)
+                TimerButton(title: "10m", seconds: 600, timerManager: timerManager)
+                TimerButton(title: "15m", seconds: 900, timerManager: timerManager)
             }
 
             Text("Selected: \(timerManager.formattedTimeLimit)")
@@ -184,6 +175,26 @@ struct TimerSetupView: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(10)
+    }
+}
+
+struct TimerButton: View {
+    let title: String
+    let seconds: TimeInterval
+    @ObservedObject var timerManager: TimerManager
+
+    var body: some View {
+        Button(action: {
+            print("Timer button tapped: \(title), setting \(seconds) seconds")
+            timerManager.setTimeLimit(seconds)
+        }) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(timerManager.timeLimit == seconds ? .white : .primary)
+        }
+        .buttonStyle(.bordered)
+        .background(timerManager.timeLimit == seconds ? Color.blue : Color.clear)
+        .cornerRadius(8)
     }
 }
 
@@ -344,7 +355,7 @@ struct PausedView: View {
 
 struct ExerciseSetupView: View {
     @ObservedObject var exerciseManager: ExerciseManager
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) var dismiss
     @State private var showingExercisePicker = false
     @State private var selectedSuit: Suit?
     @State private var isSelectingForJoker = false
@@ -428,14 +439,18 @@ struct ExerciseSetupView: View {
             }
             .navigationTitle("Exercise Setup")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                leading: Button("Reset") {
-                    exerciseManager.resetToDefaults()
-                },
-                trailing: Button("Done") {
-                    presentationMode.wrappedValue.dismiss()
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Reset") {
+                        exerciseManager.resetToDefaults()
+                    }
                 }
-            )
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
             .sheet(isPresented: $showingExercisePicker) {
                 ExercisePickerView(
                     exerciseManager: exerciseManager,
@@ -452,7 +467,7 @@ struct ExerciseSetupView: View {
 
 struct ExercisePickerView: View {
     @ObservedObject var exerciseManager: ExerciseManager
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) var dismiss
     let selectedSuit: Suit?
     let isSelectingForJoker: Bool
 
@@ -479,11 +494,13 @@ struct ExercisePickerView: View {
             }
             .navigationTitle("Choose Exercise")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                trailing: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
                 }
-            )
+            }
         }
     }
 
@@ -493,7 +510,7 @@ struct ExercisePickerView: View {
         } else if let suit = selectedSuit {
             exerciseManager.setExercise(for: suit, exercise: exercise)
         }
-        presentationMode.wrappedValue.dismiss()
+        dismiss()
     }
 }
 
@@ -528,7 +545,7 @@ struct ExerciseRow: View {
 
 struct NewExerciseView: View {
     @ObservedObject var exerciseManager: ExerciseManager
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) var dismiss
     @State private var exerciseName = ""
     @State private var exerciseDescription = ""
 
@@ -548,7 +565,7 @@ struct NewExerciseView: View {
                                 name: exerciseName,
                                 description: exerciseDescription
                             )
-                            presentationMode.wrappedValue.dismiss()
+                            dismiss()
                         }
                     }
                     .disabled(exerciseName.isEmpty || exerciseDescription.isEmpty)
@@ -556,11 +573,13 @@ struct NewExerciseView: View {
             }
             .navigationTitle("New Exercise")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                leading: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
                 }
-            )
+            }
         }
     }
 }
