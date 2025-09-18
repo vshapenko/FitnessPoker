@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		7A1234567890ABCD /* FitnessPokerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1234567890ABCE /* FitnessPokerApp.swift */; };
+		7A1234567890ABEA /* FitnessPokerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1234567890ABCE /* FitnessPokerApp.swift */; };
 		7A1234567890ABCF /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1234567890ABD0 /* ContentView.swift */; };
 		7A1234567890ABD1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A1234567890ABD2 /* Assets.xcassets */; };
 		7A1234567890ABD3 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A1234567890ABD4 /* Preview Assets.xcassets */; };
@@ -47,7 +47,7 @@
 		7A1234567890ABC2 = {
 			isa = PBXGroup;
 			children = (
-				7A1234567890ABCD /* FitnessPoker */,
+				7A1234567890ABC5 /* FitnessPoker */,
 				7A1234567890ABCC /* Products */,
 			);
 			sourceTree = "<group>";
@@ -60,7 +60,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		7A1234567890ABCD /* FitnessPoker */ = {
+		7A1234567890ABC5 /* FitnessPoker */ = {
 			isa = PBXGroup;
 			children = (
 				7A1234567890ABE1 /* Models */,
@@ -186,7 +186,7 @@
 				7A1234567890ABDB /* GameManager.swift in Sources */,
 				7A1234567890ABDD /* TeamManager.swift in Sources */,
 				7A1234567890ABDF /* TimerManager.swift in Sources */,
-				7A1234567890ABCD /* FitnessPokerApp.swift in Sources */,
+				7A1234567890ABEA /* FitnessPokerApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
