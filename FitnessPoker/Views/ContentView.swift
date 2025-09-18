@@ -15,8 +15,6 @@ struct ContentView: View {
                     PlayingView(gameManager: gameManager)
                 case .paused:
                     PausedView(gameManager: gameManager)
-                case .cardDrawn:
-                    CardDrawnView(gameManager: gameManager)
                 }
 
                 Spacer()
@@ -45,24 +43,24 @@ struct HeaderView: View {
 
                 Spacer()
 
-                if let currentPlayer = gameManager.teamManager.currentPlayer {
+                if gameManager.gameState == .playing || gameManager.gameState == .paused {
                     VStack(alignment: .trailing) {
-                        Text("Current Player")
+                        Text("Game Time")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text(currentPlayer.name)
+                        Text(gameManager.timerManager.formattedTime)
                             .font(.title2)
                             .fontWeight(.bold)
+                            .foregroundColor(gameManager.timerManager.isExpired ? .red : .primary)
                     }
                 }
             }
 
-            if gameManager.gameState == .cardDrawn {
+            if gameManager.gameState == .playing || gameManager.gameState == .paused {
                 HStack {
-                    Text("Time: \(gameManager.timerManager.formattedTime)")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(gameManager.timerManager.timeRemaining < 10 ? .red : .primary)
+                    Text("Limit: \(gameManager.timerManager.formattedTimeLimit)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
 
                     Spacer()
 
@@ -106,9 +104,9 @@ struct SetupView: View {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 10) {
-                ForEach(Array(gameManager.teamManager.players.enumerated()), id: \.element.id) { index, player in
+                ForEach(gameManager.teamManager.players) { player in
                     PlayerCard(player: player) {
-                        gameManager.teamManager.removePlayer(at: index)
+                        gameManager.teamManager.removePlayer(withId: player.id)
                     }
                 }
             }
@@ -154,32 +152,32 @@ struct TimerSetupView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Text("Exercise Time Limit")
+            Text("Game Time Limit")
                 .font(.headline)
 
             HStack {
-                Button("30s") {
-                    timerManager.setTimeLimit(30)
+                Button("No Limit") {
+                    timerManager.setTimeLimit(0)
                 }
                 .buttonStyle(.bordered)
 
-                Button("60s") {
-                    timerManager.setTimeLimit(60)
+                Button("5m") {
+                    timerManager.setTimeLimit(300)
                 }
                 .buttonStyle(.bordered)
 
-                Button("90s") {
-                    timerManager.setTimeLimit(90)
+                Button("10m") {
+                    timerManager.setTimeLimit(600)
                 }
                 .buttonStyle(.bordered)
 
-                Button("2m") {
-                    timerManager.setTimeLimit(120)
+                Button("15m") {
+                    timerManager.setTimeLimit(900)
                 }
                 .buttonStyle(.bordered)
             }
 
-            Text("Selected: \(Int(timerManager.timeLimit))s")
+            Text("Selected: \(timerManager.formattedTimeLimit)")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -193,27 +191,20 @@ struct PlayingView: View {
     @ObservedObject var gameManager: GameManager
 
     var body: some View {
-        VStack(spacing: 30) {
-            Text("Ready to draw a card?")
-                .font(.title)
-                .multilineTextAlignment(.center)
+        VStack(spacing: 20) {
+            Text("Players")
+                .font(.title2)
+                .fontWeight(.semibold)
 
-            Button(action: {
-                gameManager.drawCard()
-            }) {
-                VStack {
-                    Image(systemName: "rectangle.stack.fill")
-                        .font(.system(size: 60))
-                    Text("Draw Card")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 15) {
+                ForEach(gameManager.teamManager.players) { player in
+                    PlayerGameCard(
+                        player: player,
+                        gameManager: gameManager,
+                        isSelected: player.id == gameManager.teamManager.currentPlayer?.id
+                    )
                 }
-                .frame(width: 200, height: 150)
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(15)
             }
-            .disabled(!gameManager.canDrawCard)
 
             HStack(spacing: 20) {
                 Button("Pause Game") {
@@ -227,46 +218,80 @@ struct PlayingView: View {
                 .buttonStyle(.borderedProminent)
                 .foregroundColor(.red)
             }
+            .padding(.top)
         }
     }
 }
 
-struct CardDrawnView: View {
+struct PlayerGameCard: View {
+    let player: Player
     @ObservedObject var gameManager: GameManager
+    let isSelected: Bool
 
     var body: some View {
-        VStack(spacing: 30) {
-            if let card = gameManager.currentCard {
-                CardView(card: card)
+        VStack(spacing: 15) {
+            HStack {
+                Text(player.name)
+                    .font(.headline)
+                    .fontWeight(.semibold)
 
-                if let exercise = gameManager.currentExercise {
-                    VStack(spacing: 15) {
-                        Text("\(gameManager.exerciseCount) \(exercise.name)")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .multilineTextAlignment(.center)
+                Spacer()
 
-                        Text(exercise.description)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
+                Button(action: {
+                    gameManager.teamManager.selectPlayer(player.id)
+                }) {
+                    Image(systemName: isSelected ? "person.fill" : "person")
+                        .foregroundColor(isSelected ? .blue : .gray)
                 }
             }
 
-            HStack(spacing: 20) {
-                Button("Complete") {
-                    gameManager.completeCard()
-                }
-                .buttonStyle(.borderedProminent)
-                .font(.title2)
+            if let card = player.currentCard {
+                VStack(spacing: 10) {
+                    CardView(card: card)
+                        .scaleEffect(0.6)
 
-                Button("Skip") {
-                    gameManager.skipCard()
+                    if let exercise = gameManager.getExercise(for: card) {
+                        VStack(spacing: 5) {
+                            Text("\(card.exerciseCount) \(exercise.name)")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .multilineTextAlignment(.center)
+
+                            Text(exercise.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+
+                    Button("Complete") {
+                        gameManager.completeCardForPlayer(player.id)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .font(.caption)
                 }
-                .buttonStyle(.bordered)
+            } else {
+                VStack(spacing: 10) {
+                    Image(systemName: "rectangle.stack")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray)
+
+                    Button("Draw Card") {
+                        gameManager.drawCardForPlayer(player.id)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .font(.subheadline)
+                }
+                .frame(height: 120)
             }
         }
+        .padding()
+        .background(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
+        .cornerRadius(15)
+        .overlay(
+            RoundedRectangle(cornerRadius: 15)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+        )
     }
 }
 
@@ -276,18 +301,18 @@ struct CardView: View {
     var body: some View {
         VStack {
             Text(card.displayText)
-                .font(.system(size: 80))
+                .font(.system(size: 50))
 
             if !card.isJoker, let suit = card.suit {
                 Text(suit.name)
-                    .font(.headline)
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
-        .frame(width: 150, height: 200)
+        .frame(width: 100, height: 120)
         .background(Color.white)
-        .cornerRadius(15)
-        .shadow(radius: 5)
+        .cornerRadius(10)
+        .shadow(radius: 3)
     }
 }
 

@@ -7,7 +7,6 @@ class GameManager: ObservableObject {
     @Published var timerManager = TimerManager()
     @Published var exerciseManager = ExerciseManager()
 
-    @Published var currentCard: Card?
     @Published var gameState: GameState = .setup
     @Published var showingExerciseSetup = false
 
@@ -15,7 +14,6 @@ class GameManager: ObservableObject {
         case setup
         case playing
         case paused
-        case cardDrawn
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -25,10 +23,10 @@ class GameManager: ObservableObject {
     }
 
     private func setupObservers() {
-        timerManager.$timeRemaining
-            .sink { [weak self] timeRemaining in
-                if timeRemaining <= 0 && self?.gameState == .cardDrawn {
-                    self?.completeCard()
+        timerManager.$isExpired
+            .sink { [weak self] isExpired in
+                if isExpired && self?.gameState == .playing {
+                    self?.endGame()
                 }
             }
             .store(in: &cancellables)
@@ -39,6 +37,7 @@ class GameManager: ObservableObject {
         gameState = .playing
         teamManager.reset()
         deck.reset()
+        timerManager.start()
     }
 
     func pauseGame() {
@@ -48,55 +47,33 @@ class GameManager: ObservableObject {
 
     func resumeGame() {
         gameState = .playing
-        if currentCard != nil {
-            timerManager.start()
-        }
+        timerManager.start()
     }
 
     func endGame() {
         gameState = .setup
         timerManager.stop()
-        currentCard = nil
+        for i in 0..<teamManager.players.count {
+            teamManager.players[i].currentCard = nil
+        }
     }
 
-    func drawCard() {
+    func drawCardForPlayer(_ playerId: UUID) {
         guard gameState == .playing else { return }
 
         if let card = deck.drawCard() {
-            currentCard = card
-            gameState = .cardDrawn
-            timerManager.reset()
-            timerManager.start()
+            teamManager.setCurrentCard(for: playerId, card: card)
+            if deck.isExhausted {
+                deck.reset()
+            }
         }
     }
 
-    func completeCard() {
-        guard gameState == .cardDrawn else { return }
-
-        timerManager.stop()
-        teamManager.nextPlayer()
-        currentCard = nil
-        gameState = .playing
-
-        if deck.isExhausted {
-            deck.reset()
-        }
+    func completeCardForPlayer(_ playerId: UUID) {
+        teamManager.setCurrentCard(for: playerId, card: nil)
     }
 
-    func skipCard() {
-        completeCard()
-    }
-
-    var canDrawCard: Bool {
-        return gameState == .playing && currentCard == nil
-    }
-
-    var currentExercise: Exercise? {
-        guard let card = currentCard else { return nil }
+    func getExercise(for card: Card) -> Exercise? {
         return exerciseManager.getExercise(for: card)
-    }
-
-    var exerciseCount: Int {
-        return currentCard?.exerciseCount ?? 0
     }
 }

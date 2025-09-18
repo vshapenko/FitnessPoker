@@ -4,6 +4,8 @@ struct Player: Identifiable, Codable {
     let id = UUID()
     var name: String
     var isActive: Bool = true
+    var currentCard: Card?
+    var cardsDrawn: [Card] = []
 
     init(name: String) {
         self.name = name
@@ -26,8 +28,16 @@ class TeamManager: ObservableObject {
     func removePlayer(at index: Int) {
         guard index < players.count else { return }
         players.remove(at: index)
-        if currentPlayerIndex >= players.count {
+        if currentPlayerIndex >= players.count && !players.isEmpty {
+            currentPlayerIndex = players.count - 1
+        } else if players.isEmpty {
             currentPlayerIndex = 0
+        }
+    }
+
+    func removePlayer(withId id: UUID) {
+        if let index = players.firstIndex(where: { $0.id == id }) {
+            removePlayer(at: index)
         }
     }
 
@@ -56,6 +66,21 @@ class TeamManager: ObservableObject {
     func setPlayerActive(_ player: Player, isActive: Bool) {
         if let index = players.firstIndex(where: { $0.id == player.id }) {
             players[index].isActive = isActive
+        }
+    }
+
+    func setCurrentCard(for playerId: UUID, card: Card?) {
+        if let index = players.firstIndex(where: { $0.id == playerId }) {
+            players[index].currentCard = card
+            if let card = card {
+                players[index].cardsDrawn.append(card)
+            }
+        }
+    }
+
+    func selectPlayer(_ playerId: UUID) {
+        if let index = players.firstIndex(where: { $0.id == playerId }) {
+            currentPlayerIndex = index
         }
     }
 }

@@ -2,26 +2,19 @@ import Foundation
 import Combine
 
 class TimerManager: ObservableObject {
-    @Published var timeRemaining: TimeInterval = 0
+    @Published var timeElapsed: TimeInterval = 0
     @Published var isRunning: Bool = false
-    @Published var timeLimit: TimeInterval = 60
+    @Published var timeLimit: TimeInterval = 0
 
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
     func setTimeLimit(_ seconds: TimeInterval) {
         timeLimit = seconds
-        if !isRunning {
-            timeRemaining = timeLimit
-        }
     }
 
     func start() {
         guard !isRunning else { return }
-
-        if timeRemaining <= 0 {
-            timeRemaining = timeLimit
-        }
 
         isRunning = true
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -39,29 +32,37 @@ class TimerManager: ObservableObject {
         isRunning = false
         timer?.invalidate()
         timer = nil
-        timeRemaining = timeLimit
+        timeElapsed = 0
     }
 
     func reset() {
         stop()
-        timeRemaining = timeLimit
+        timeElapsed = 0
     }
 
     private func tick() {
-        if timeRemaining > 0 {
-            timeRemaining -= 1
-        } else {
+        timeElapsed += 1
+        if timeLimit > 0 && timeElapsed >= timeLimit {
             pause()
         }
     }
 
     var isExpired: Bool {
-        return timeRemaining <= 0
+        return timeLimit > 0 && timeElapsed >= timeLimit
     }
 
     var formattedTime: String {
-        let minutes = Int(timeRemaining) / 60
-        let seconds = Int(timeRemaining) % 60
+        let minutes = Int(timeElapsed) / 60
+        let seconds = Int(timeElapsed) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    var formattedTimeLimit: String {
+        if timeLimit <= 0 {
+            return "No Limit"
+        }
+        let minutes = Int(timeLimit) / 60
+        let seconds = Int(timeLimit) % 60
         return String(format: "%02d:%02d", minutes, seconds)
     }
 
