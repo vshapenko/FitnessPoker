@@ -444,7 +444,7 @@ struct PlayerGameCard: View {
             VStack {
                 if let card = player.currentCard {
                     CardView(card: card)
-                        .scaleEffect(0.6)
+                        .scaleEffect(0.8)
 
                     if let exercise = gameManager.getExercise(for: card) {
                         VStack(spacing: 5) {
@@ -490,6 +490,8 @@ struct CardView: View {
         VStack {
             Text(card.displayText)
                 .font(.system(size: 50))
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
 
             if !card.isJoker, let suit = card.suit {
                 Text(suit.name)
