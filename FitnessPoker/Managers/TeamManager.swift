@@ -21,7 +21,9 @@ class TeamManager: ObservableObject {
     func addPlayer(_ name: String) -> Bool {
         guard players.count < maxPlayers else { return false }
         let player = Player(name: name)
+        print("Adding player: \(player.name) with ID: \(player.id)")
         players.append(player)
+        print("Players array now has \(players.count) players")
         return true
     }
 
@@ -44,11 +46,26 @@ class TeamManager: ObservableObject {
 
     func removePlayer(withId id: UUID) {
         print("removePlayer(withId:) called with id: \(id)")
+        print("Current players array has \(players.count) players:")
+        for (index, player) in players.enumerated() {
+            print("  [\(index)]: \(player.name) - ID: \(player.id)")
+        }
+
         if let index = players.firstIndex(where: { $0.id == id }) {
             print("Found player at index: \(index)")
             removePlayer(at: index)
         } else {
-            print("Player with id \(id) not found")
+            print("Player with id \(id) not found in array")
+            print("Attempting exact match comparison...")
+            for (index, player) in players.enumerated() {
+                print("Comparing \(id) == \(player.id): \(id == player.id)")
+                if id == player.id {
+                    print("Found exact match at index \(index), removing...")
+                    removePlayer(at: index)
+                    return
+                }
+            }
+            print("No exact match found either")
         }
     }
 

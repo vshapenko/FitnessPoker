@@ -106,9 +106,10 @@ struct SetupView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 10) {
                 ForEach(gameManager.teamManager.players) { player in
                     PlayerCard(player: player) {
-                        print("Remove player button tapped for: \(player.name)")
+                        print("Remove player button tapped for: \(player.name) with ID: \(player.id)")
+                        print("Current teamManager players count: \(gameManager.teamManager.players.count)")
                         gameManager.teamManager.removePlayer(withId: player.id)
-                        print("Players remaining: \(gameManager.teamManager.players.count)")
+                        print("Players remaining after removal: \(gameManager.teamManager.players.count)")
                     }
                 }
             }
