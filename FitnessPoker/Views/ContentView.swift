@@ -83,9 +83,26 @@ struct HeaderView: View {
 struct SetupView: View {
     @ObservedObject var gameManager: GameManager
     @State private var newPlayerName = ""
+    @FocusState private var isPlayerNameFieldFocused: Bool
+    @State private var showingExerciseSetup = false
 
     var body: some View {
         VStack(spacing: 20) {
+            // Exercise Setup Button
+            Button(action: {
+                showingExerciseSetup = true
+            }) {
+                HStack {
+                    Image(systemName: "dumbbell.fill")
+                    Text("Setup Exercises")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                }
+                .padding()
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(10)
+            }
+
             Text("Add Players (Max 4)")
                 .font(.title2)
                 .fontWeight(.semibold)
@@ -93,39 +110,52 @@ struct SetupView: View {
             HStack {
                 TextField("Player name", text: $newPlayerName)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .focused($isPlayerNameFieldFocused)
+                    .onSubmit {
+                        addPlayer()
+                    }
 
                 Button("Add") {
-                    if !newPlayerName.isEmpty && gameManager.teamManager.addPlayer(newPlayerName) {
-                        newPlayerName = ""
-                    }
+                    addPlayer()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(newPlayerName.isEmpty || !gameManager.teamManager.canAddPlayer)
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 10) {
-                ForEach(gameManager.teamManager.players) { player in
-                    PlayerCard(player: player) {
-                        print("Remove player button tapped for: \(player.name) with ID: \(player.id)")
-                        print("Current teamManager players count: \(gameManager.teamManager.players.count)")
-                        gameManager.teamManager.removePlayer(withId: player.id)
-                        print("Players remaining after removal: \(gameManager.teamManager.players.count)")
+            if !gameManager.teamManager.players.isEmpty {
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 10) {
+                        ForEach(gameManager.teamManager.players, id: \.id) { player in
+                            PlayerCard(player: player) {
+                                gameManager.teamManager.removePlayer(withId: player.id)
+                            }
+                        }
                     }
                 }
+                .frame(maxHeight: 200)
+                .animation(.default, value: gameManager.teamManager.players.count)
             }
 
             TimerSetupView(timerManager: gameManager.timerManager)
 
             Button("Start Game") {
-                print("Start Game button tapped!")
-                print("Has players: \(gameManager.teamManager.hasPlayers)")
-                print("Player count: \(gameManager.teamManager.players.count)")
                 gameManager.startGame()
-                print("Game state after start: \(gameManager.gameState)")
             }
             .buttonStyle(.borderedProminent)
             .font(.title2)
+            .padding()
             .disabled(!gameManager.teamManager.hasPlayers)
+        }
+        .sheet(isPresented: $showingExerciseSetup) {
+            ExerciseSetupView(exerciseManager: gameManager.exerciseManager)
+        }
+    }
+
+    private func addPlayer() {
+        guard !newPlayerName.isEmpty else { return }
+        if gameManager.teamManager.addPlayer(newPlayerName) {
+            newPlayerName = ""
+            isPlayerNameFieldFocused = true
         }
     }
 }
@@ -139,16 +169,21 @@ struct PlayerCard: View {
             Text(player.name)
                 .font(.subheadline)
                 .lineLimit(1)
+                .foregroundColor(.primary)
 
             Spacer()
 
-            Button(action: onRemove) {
+            Button(action: {
+                onRemove()
+            }) {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundColor(.red)
+                    .imageScale(.medium)
             }
+            .buttonStyle(PlainButtonStyle())
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .background(Color(.systemBlue).opacity(0.1))
         .cornerRadius(8)
     }
@@ -156,17 +191,67 @@ struct PlayerCard: View {
 
 struct TimerSetupView: View {
     @ObservedObject var timerManager: TimerManager
+    @State private var showingCustomTime = false
+    @State private var customMinutes: String = ""
+    @State private var customSeconds: String = ""
+    @FocusState private var isCustomTimeFocused: Bool
 
     var body: some View {
         VStack(spacing: 10) {
             Text("Game Time Limit")
                 .font(.headline)
 
-            HStack(spacing: 15) {
+            HStack(spacing: 10) {
                 TimerButton(title: "No Limit", seconds: 0, timerManager: timerManager)
                 TimerButton(title: "5m", seconds: 300, timerManager: timerManager)
                 TimerButton(title: "10m", seconds: 600, timerManager: timerManager)
                 TimerButton(title: "15m", seconds: 900, timerManager: timerManager)
+            }
+
+            Button(action: {
+                showingCustomTime.toggle()
+                if showingCustomTime {
+                    isCustomTimeFocused = true
+                }
+            }) {
+                Text("Custom")
+                    .font(.subheadline)
+                    .foregroundColor(showingCustomTime ? .white : .primary)
+            }
+            .buttonStyle(.bordered)
+            .background(showingCustomTime ? Color.blue : Color.clear)
+            .cornerRadius(8)
+
+            if showingCustomTime {
+                HStack {
+                    TextField("Min", text: $customMinutes)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .frame(width: 60)
+                        .keyboardType(.numberPad)
+                        .focused($isCustomTimeFocused)
+
+                    Text(":")
+
+                    TextField("Sec", text: $customSeconds)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .frame(width: 60)
+                        .keyboardType(.numberPad)
+
+                    Button("Set") {
+                        let minutes = Int(customMinutes) ?? 0
+                        let seconds = Int(customSeconds) ?? 0
+                        let totalSeconds = TimeInterval(minutes * 60 + seconds)
+                        if totalSeconds > 0 {
+                            timerManager.setTimeLimit(totalSeconds)
+                            showingCustomTime = false
+                            customMinutes = ""
+                            customSeconds = ""
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(customMinutes.isEmpty && customSeconds.isEmpty)
+                }
+                .padding(.top, 5)
             }
 
             Text("Selected: \(timerManager.formattedTimeLimit)")
@@ -209,12 +294,8 @@ struct PlayingView: View {
                 .fontWeight(.semibold)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 15) {
-                ForEach(gameManager.teamManager.players) { player in
-                    PlayerGameCard(
-                        player: player,
-                        gameManager: gameManager,
-                        isSelected: player.id == gameManager.teamManager.currentPlayer?.id
-                    )
+                ForEach(gameManager.teamManager.players, id: \.id) { player in
+                    PlayerGameCard(player: player, gameManager: gameManager)
                 }
             }
 
@@ -238,10 +319,9 @@ struct PlayingView: View {
 struct PlayerGameCard: View {
     let player: Player
     @ObservedObject var gameManager: GameManager
-    let isSelected: Bool
 
     var body: some View {
-        VStack(spacing: 15) {
+        VStack(spacing: 10) {
             HStack {
                 Text(player.name)
                     .font(.headline)
@@ -249,16 +329,13 @@ struct PlayerGameCard: View {
 
                 Spacer()
 
-                Button(action: {
-                    gameManager.teamManager.selectPlayer(player.id)
-                }) {
-                    Image(systemName: isSelected ? "person.fill" : "person")
-                        .foregroundColor(isSelected ? .blue : .gray)
-                }
+                Text("Cards: \(player.cardsDrawn.count)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
 
-            if let card = player.currentCard {
-                VStack(spacing: 10) {
+            VStack {
+                if let card = player.currentCard {
                     CardView(card: card)
                         .scaleEffect(0.6)
 
@@ -274,36 +351,28 @@ struct PlayerGameCard: View {
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                         }
+                        .padding(.horizontal, 4)
                     }
-
-                    Button("Complete") {
-                        gameManager.completeCardForPlayer(player.id)
+                } else {
+                    VStack(spacing: 10) {
+                        Image(systemName: "rectangle.stack")
+                            .font(.system(size: 40))
+                            .foregroundColor(.gray)
+                        Text("Tap to Draw")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .font(.caption)
                 }
-            } else {
-                VStack(spacing: 10) {
-                    Image(systemName: "rectangle.stack")
-                        .font(.system(size: 40))
-                        .foregroundColor(.gray)
-
-                    Button("Draw Card") {
-                        gameManager.drawCardForPlayer(player.id)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .font(.subheadline)
-                }
-                .frame(height: 120)
             }
+            .frame(height: 150)
         }
         .padding()
-        .background(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
+        .background(Color(.systemGray6))
         .cornerRadius(15)
-        .overlay(
-            RoundedRectangle(cornerRadius: 15)
-                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
-        )
+        .contentShape(Rectangle()) // Makes the whole area tappable, including blank space
+        .onTapGesture {
+            gameManager.drawCardForPlayer(player.id)
+        }
     }
 }
 
@@ -364,78 +433,124 @@ struct ExerciseSetupView: View {
 
     var body: some View {
         NavigationView {
-            List {
-                Section("Suit Exercises") {
-                    ForEach(Suit.allCases, id: \.self) { suit in
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Suit Exercises Section
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Suit Exercises")
+                            .font(.headline)
+                            .padding(.horizontal)
+
+                        VStack(spacing: 8) {
+                            ForEach(Suit.allCases, id: \.self) { suit in
+                                HStack {
+                                    Text("\(suit.rawValue) \(suit.name)")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+
+                                    Spacer()
+
+                                    if let exercise = exerciseManager.suitExercises[suit] {
+                                        Text(exercise.name)
+                                            .foregroundColor(.secondary)
+                                            .font(.caption)
+                                    }
+
+                                    Button("Change") {
+                                        selectedSuit = suit
+                                        isSelectingForJoker = false
+                                        showingExercisePicker = true
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .font(.caption)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    // Joker Exercise Section
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Joker Exercise")
+                            .font(.headline)
+                            .padding(.horizontal)
+
                         HStack {
-                            Text("\(suit.rawValue) \(suit.name)")
-                                .font(.headline)
+                            Text("🃏 Joker")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
 
                             Spacer()
 
-                            if let exercise = exerciseManager.suitExercises[suit] {
-                                Text(exercise.name)
-                                    .foregroundColor(.secondary)
-                            }
+                            Text(exerciseManager.jokerExercise.name)
+                                .foregroundColor(.secondary)
+                                .font(.caption)
 
                             Button("Change") {
-                                selectedSuit = suit
-                                isSelectingForJoker = false
+                                isSelectingForJoker = true
+                                selectedSuit = nil
                                 showingExercisePicker = true
                             }
                             .buttonStyle(.bordered)
                             .font(.caption)
                         }
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
                     }
-                }
 
-                Section("Joker Exercise") {
-                    HStack {
-                        Text("🃏 Joker")
+                    // Custom Exercises Section
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Custom Exercises")
                             .font(.headline)
+                            .padding(.horizontal)
 
-                        Spacer()
+                        VStack(spacing: 8) {
+                            ForEach(exerciseManager.customExercises) { exercise in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text(exercise.name)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
 
-                        Text(exerciseManager.jokerExercise.name)
-                            .foregroundColor(.secondary)
+                                        Spacer()
 
-                        Button("Change") {
-                            isSelectingForJoker = true
-                            selectedSuit = nil
-                            showingExercisePicker = true
-                        }
-                        .buttonStyle(.bordered)
-                        .font(.caption)
-                    }
-                }
+                                        Button("Delete") {
+                                            exerciseManager.removeCustomExercise(exercise)
+                                        }
+                                        .foregroundColor(.red)
+                                        .font(.caption)
+                                    }
 
-                Section("Custom Exercises") {
-                    ForEach(exerciseManager.customExercises) { exercise in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(exercise.name)
-                                    .font(.headline)
-
-                                Spacer()
-
-                                Button("Delete") {
-                                    exerciseManager.removeCustomExercise(exercise)
+                                    Text(exercise.description)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
-                                .foregroundColor(.red)
-                                .font(.caption)
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
                             }
 
-                            Text(exercise.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Button("Add New Exercise") {
+                                showingNewExerciseSheet = true
+                            }
+                            .foregroundColor(.blue)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
                         }
-                        .padding(.vertical, 2)
+                        .padding(.horizontal)
                     }
 
-                    Button("Add New Exercise") {
-                        showingNewExerciseSheet = true
-                    }
-                    .foregroundColor(.blue)
+                    Spacer(minLength: 50)
                 }
             }
             .navigationTitle("Exercise Setup")

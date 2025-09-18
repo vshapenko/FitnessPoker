@@ -1,6 +1,7 @@
 import Foundation
+import SwiftUI
 
-struct Player: Identifiable {
+struct Player: Identifiable, Equatable {
     let id = UUID()
     var name: String
     var isActive: Bool = true
@@ -14,7 +15,6 @@ struct Player: Identifiable {
 
 class TeamManager: ObservableObject {
     @Published var players: [Player] = []
-    @Published var currentPlayerIndex: Int = 0
 
     private let maxPlayers = 4
 
@@ -37,46 +37,25 @@ class TeamManager: ObservableObject {
         let playerName = players[index].name
         players.remove(at: index)
         print("Removed player: \(playerName), remaining count: \(players.count)")
-        if currentPlayerIndex >= players.count && !players.isEmpty {
-            currentPlayerIndex = players.count - 1
-        } else if players.isEmpty {
-            currentPlayerIndex = 0
-        }
     }
 
     func removePlayer(withId id: UUID) {
-        print("removePlayer(withId:) called with id: \(id)")
-        print("Current players array has \(players.count) players:")
-        for (index, player) in players.enumerated() {
-            print("  [\(index)]: \(player.name) - ID: \(player.id)")
-        }
+        print("Attempting to remove player with ID: \(id)")
+        print("Current players: \(players.map { "\($0.name) (\($0.id))" }.joined(separator: ", "))")
 
         if let index = players.firstIndex(where: { $0.id == id }) {
-            print("Found player at index: \(index)")
-            removePlayer(at: index)
+            let playerName = players[index].name
+            print("Found player at index \(index): \(playerName)")
+
+            // Remove the player
+            players.remove(at: index)
+
+            print("Removed player: \(playerName)")
         } else {
-            print("Player with id \(id) not found in array")
-            print("Attempting exact match comparison...")
-            for (index, player) in players.enumerated() {
-                print("Comparing \(id) == \(player.id): \(id == player.id)")
-                if id == player.id {
-                    print("Found exact match at index \(index), removing...")
-                    removePlayer(at: index)
-                    return
-                }
-            }
-            print("No exact match found either")
+            print("Player with ID \(id) not found")
         }
-    }
 
-    func nextPlayer() {
-        guard !players.isEmpty else { return }
-        currentPlayerIndex = (currentPlayerIndex + 1) % players.count
-    }
-
-    var currentPlayer: Player? {
-        guard !players.isEmpty && currentPlayerIndex < players.count else { return nil }
-        return players[currentPlayerIndex]
+        print("Players after removal: \(players.count)")
     }
 
     var canAddPlayer: Bool {
@@ -88,27 +67,35 @@ class TeamManager: ObservableObject {
     }
 
     func reset() {
-        currentPlayerIndex = 0
+        // This function used to reset currentPlayerIndex, now it does nothing.
+        // It can be expanded later if player state needs resetting.
     }
 
     func setPlayerActive(_ player: Player, isActive: Bool) {
         if let index = players.firstIndex(where: { $0.id == player.id }) {
-            players[index].isActive = isActive
+            var updatedPlayer = players[index]
+            updatedPlayer.isActive = isActive
+            players[index] = updatedPlayer
         }
     }
 
     func setCurrentCard(for playerId: UUID, card: Card?) {
+        print("setCurrentCard called for player: \(playerId), card: \(card?.displayText ?? "nil")")
         if let index = players.firstIndex(where: { $0.id == playerId }) {
-            players[index].currentCard = card
-            if let card = card {
-                players[index].cardsDrawn.append(card)
-            }
-        }
-    }
+            print("Found player at index: \(index)")
 
-    func selectPlayer(_ playerId: UUID) {
-        if let index = players.firstIndex(where: { $0.id == playerId }) {
-            currentPlayerIndex = index
+            // Create a modified copy of the player
+            var updatedPlayer = players[index]
+            updatedPlayer.currentCard = card
+            if let card = card {
+                updatedPlayer.cardsDrawn.append(card)
+            }
+
+            // Replace the entire array element to trigger SwiftUI update
+            players[index] = updatedPlayer
+            print("Card set successfully, UI should update")
+        } else {
+            print("Player not found with ID: \(playerId)")
         }
     }
 }

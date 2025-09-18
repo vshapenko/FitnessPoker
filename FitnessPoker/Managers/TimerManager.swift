@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 class TimerManager: ObservableObject {
-    @Published var timeElapsed: TimeInterval = 0
+    @Published var timeRemaining: TimeInterval = 0
     @Published var isRunning: Bool = false
     @Published var timeLimit: TimeInterval = 0
     @Published var isExpired: Bool = false
@@ -16,15 +16,24 @@ class TimerManager: ObservableObject {
 
     func setTimeLimit(_ seconds: TimeInterval) {
         timeLimit = seconds
+        timeRemaining = seconds
     }
 
     func start() {
-        guard !isRunning else { return }
+        guard !isRunning, timeLimit > 0 else { return }
+
+        // If timer was paused, just resume. Otherwise, start from the limit.
+        if timeRemaining == 0 {
+            timeRemaining = timeLimit
+        }
 
         isRunning = true
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.tick()
+        timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.tick()
+            }
         }
+        RunLoop.main.add(timer!, forMode: .common)
     }
 
     func pause() {
@@ -37,30 +46,27 @@ class TimerManager: ObservableObject {
         isRunning = false
         timer?.invalidate()
         timer = nil
-        timeElapsed = 0
+        timeRemaining = timeLimit
         isExpired = false
     }
 
     func reset() {
         stop()
-        timeElapsed = 0
-        isExpired = false
     }
 
     private func tick() {
-        timeElapsed += 1
-        let newIsExpired = timeLimit > 0 && timeElapsed >= timeLimit
-        if isExpired != newIsExpired {
-            isExpired = newIsExpired
-        }
-        if isExpired {
+        guard timeRemaining > 0 else { return }
+
+        timeRemaining -= 1
+        if timeRemaining <= 0 {
+            isExpired = true
             pause()
         }
     }
 
     var formattedTime: String {
-        let minutes = Int(timeElapsed) / 60
-        let seconds = Int(timeElapsed) % 60
+        let minutes = Int(timeRemaining) / 60
+        let seconds = Int(timeRemaining) % 60
         return String(format: "%02d:%02d", minutes, seconds)
     }
 
