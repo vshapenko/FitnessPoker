@@ -1,6 +1,6 @@
 import Foundation
 
-enum Suit: String, CaseIterable {
+enum Suit: String, CaseIterable, Codable {
     case hearts = "♥️"
     case diamonds = "♦️"
     case clubs = "♣️"
@@ -16,7 +16,7 @@ enum Suit: String, CaseIterable {
     }
 }
 
-enum Rank: Int, CaseIterable {
+enum Rank: Int, CaseIterable, Codable {
     case two = 2, three, four, five, six, seven, eight, nine, ten
     case jack = 11, queen = 12, king = 13, ace = 14
 
@@ -48,7 +48,7 @@ enum Rank: Int, CaseIterable {
     }
 }
 
-struct Card: Identifiable, Equatable {
+struct Card: Identifiable, Equatable, Codable {
     let id = UUID()
     let suit: Suit?
     let rank: Rank?

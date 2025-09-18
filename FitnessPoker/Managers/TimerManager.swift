@@ -5,6 +5,7 @@ class TimerManager: ObservableObject {
     @Published var timeElapsed: TimeInterval = 0
     @Published var isRunning: Bool = false
     @Published var timeLimit: TimeInterval = 0
+    @Published var isExpired: Bool = false
 
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
@@ -33,22 +34,24 @@ class TimerManager: ObservableObject {
         timer?.invalidate()
         timer = nil
         timeElapsed = 0
+        isExpired = false
     }
 
     func reset() {
         stop()
         timeElapsed = 0
+        isExpired = false
     }
 
     private func tick() {
         timeElapsed += 1
-        if timeLimit > 0 && timeElapsed >= timeLimit {
+        let newIsExpired = timeLimit > 0 && timeElapsed >= timeLimit
+        if isExpired != newIsExpired {
+            isExpired = newIsExpired
+        }
+        if isExpired {
             pause()
         }
-    }
-
-    var isExpired: Bool {
-        return timeLimit > 0 && timeElapsed >= timeLimit
     }
 
     var formattedTime: String {
