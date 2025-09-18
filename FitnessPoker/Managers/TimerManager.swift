@@ -11,7 +11,8 @@ class TimerManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     init() {
-        timeLimit = 0
+        timeLimit = 300
+        timeRemaining = 300
     }
 
     func setTimeLimit(_ seconds: TimeInterval) {

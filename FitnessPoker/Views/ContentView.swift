@@ -15,6 +15,8 @@ struct ContentView: View {
                     PlayingView(gameManager: gameManager)
                 case .paused:
                     PausedView(gameManager: gameManager)
+                case .finished:
+                    GameFinishedView(gameManager: gameManager)
                 }
 
                 Spacer()
@@ -23,6 +25,111 @@ struct ContentView: View {
             .navigationTitle("Fitness Poker")
             .navigationBarTitleDisplayMode(.large)
         }
+    }
+}
+
+struct GameFinishedView: View {
+    @ObservedObject var gameManager: GameManager
+    @State private var selectedPlayer: Player? // For presenting the detail sheet
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Game Over!")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            List(gameManager.teamManager.players) { player in
+                Button(action: { self.selectedPlayer = player }) {
+                    HStack {
+                        Text(player.name)
+                            .font(.headline)
+                        Spacer()
+                        VStack(alignment: .trailing) {
+                            Text("Cards: \(player.cardsDrawn.count)")
+                            Text("Avg: \(averageTime(for: player))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Image(systemName: "chevron.right").padding(.leading, 5)
+                    }
+                    .foregroundColor(.primary)
+                }
+            }
+
+            Button("Play Again") {
+                gameManager.resetGame()
+            }
+            .buttonStyle(.borderedProminent)
+            .font(.title2)
+            .padding()
+        }
+        .sheet(item: $selectedPlayer) { player in
+            PlayerStatsDetailView(player: player, gameManager: gameManager)
+        }
+    }
+
+    private func averageTime(for player: Player) -> String {
+        if player.cardProcessingTimes.isEmpty {
+            return "N/A"
+        }
+        let totalTime = player.cardProcessingTimes.reduce(0, +)
+        let average = totalTime / Double(player.cardProcessingTimes.count)
+        return String(format: "%.1fs", average)
+    }
+}
+
+struct PlayerStatsDetailView: View {
+    let player: Player
+    @ObservedObject var gameManager: GameManager // Pass gameManager to get exercise info
+
+    var body: some View {
+        NavigationView {
+            List {
+                Section(header: Text("Overall Stats")) {
+                    HStack {
+                        Text("Total Cards Drawn")
+                        Spacer()
+                        Text("\(player.cardsDrawn.count)")
+                    }
+                    HStack {
+                        Text("Average Time / Card")
+                        Spacer()
+                        Text(averageTime)
+                    }
+                }
+
+                Section(header: Text("Time per Card")) {
+                    if player.cardProcessingTimes.isEmpty {
+                        Text("No cards were completed.")
+                    } else {
+                        // We zip the times with the cards that *were* completed
+                        ForEach(Array(zip(player.cardsDrawn, player.cardProcessingTimes).enumerated()), id: \.offset) { index, element in
+                            let (card, time) = element
+                            HStack {
+                                if let exercise = gameManager.getExercise(for: card) {
+                                    Text("\(index + 1). \(card.displayText): \(card.exerciseCount) \(exercise.name)")
+                                } else {
+                                    Text("\(index + 1). \(card.displayText): No exercise assigned")
+                                }
+                                Spacer()
+                                Text(String(format: "%.1fs", time))
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("\(player.name)'s Stats")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private var averageTime: String {
+        if player.cardProcessingTimes.isEmpty {
+            return "N/A"
+        }
+        let totalTime = player.cardProcessingTimes.reduce(0, +)
+        let average = totalTime / Double(player.cardProcessingTimes.count)
+        return String(format: "%.1fs", average)
     }
 }
 
@@ -202,7 +309,7 @@ struct TimerSetupView: View {
                 .font(.headline)
 
             HStack(spacing: 10) {
-                TimerButton(title: "No Limit", seconds: 0, timerManager: timerManager)
+
                 TimerButton(title: "5m", seconds: 300, timerManager: timerManager)
                 TimerButton(title: "10m", seconds: 600, timerManager: timerManager)
                 TimerButton(title: "15m", seconds: 900, timerManager: timerManager)
@@ -428,8 +535,9 @@ struct ExerciseSetupView: View {
     @Environment(\.dismiss) var dismiss
     @State private var showingExercisePicker = false
     @State private var selectedSuit: Suit?
-    @State private var isSelectingForJoker = false
+    @State private var selectedJokerId: String?
     @State private var showingNewExerciseSheet = false
+    private let jokerIds = ["Joker 1", "Joker 2"]
 
     var body: some View {
         NavigationView {
@@ -458,7 +566,7 @@ struct ExerciseSetupView: View {
 
                                     Button("Change") {
                                         selectedSuit = suit
-                                        isSelectingForJoker = false
+                                        selectedJokerId = nil
                                         showingExercisePicker = true
                                     }
                                     .buttonStyle(.bordered)
@@ -475,33 +583,39 @@ struct ExerciseSetupView: View {
 
                     // Joker Exercise Section
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Joker Exercise")
+                        Text("Joker Exercises")
                             .font(.headline)
                             .padding(.horizontal)
 
-                        HStack {
-                            Text("🃏 Joker")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+                        VStack(spacing: 8) {
+                            ForEach(jokerIds, id: \.self) { jokerId in
+                                HStack {
+                                    Text("🃏 \(jokerId)")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
 
-                            Spacer()
+                                    Spacer()
 
-                            Text(exerciseManager.jokerExercise.name)
-                                .foregroundColor(.secondary)
-                                .font(.caption)
+                                    if let exercise = exerciseManager.jokerExercises[jokerId] {
+                                        Text(exercise.name)
+                                            .foregroundColor(.secondary)
+                                            .font(.caption)
+                                    }
 
-                            Button("Change") {
-                                isSelectingForJoker = true
-                                selectedSuit = nil
-                                showingExercisePicker = true
+                                    Button("Change") {
+                                        selectedJokerId = jokerId
+                                        selectedSuit = nil
+                                        showingExercisePicker = true
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .font(.caption)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
                             }
-                            .buttonStyle(.bordered)
-                            .font(.caption)
                         }
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
                         .padding(.horizontal)
                     }
 
@@ -571,7 +685,7 @@ struct ExerciseSetupView: View {
                 ExercisePickerView(
                     exerciseManager: exerciseManager,
                     selectedSuit: selectedSuit,
-                    isSelectingForJoker: isSelectingForJoker
+                    selectedJokerId: selectedJokerId
                 )
             }
             .sheet(isPresented: $showingNewExerciseSheet) {
@@ -585,7 +699,7 @@ struct ExercisePickerView: View {
     @ObservedObject var exerciseManager: ExerciseManager
     @Environment(\.dismiss) var dismiss
     let selectedSuit: Suit?
-    let isSelectingForJoker: Bool
+    let selectedJokerId: String?
 
     var body: some View {
         NavigationView {
@@ -621,8 +735,8 @@ struct ExercisePickerView: View {
     }
 
     private func selectExercise(_ exercise: Exercise) {
-        if isSelectingForJoker {
-            exerciseManager.setJokerExercise(exercise)
+        if let jokerId = selectedJokerId {
+            exerciseManager.setJokerExercise(for: jokerId, exercise: exercise)
         } else if let suit = selectedSuit {
             exerciseManager.setExercise(for: suit, exercise: exercise)
         }

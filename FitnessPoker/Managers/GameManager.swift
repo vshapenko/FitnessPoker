@@ -15,6 +15,7 @@ class GameManager: ObservableObject {
         case setup
         case playing
         case paused
+        case finished
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -47,34 +48,25 @@ class GameManager: ObservableObject {
     }
 
     func startGame() {
-        print("GameManager.startGame() called")
-        print("hasPlayers: \(teamManager.hasPlayers)")
-        print("Current game state: \(gameState)")
+        guard teamManager.hasPlayers else { return }
 
-        guard teamManager.hasPlayers else {
-            print("No players found, exiting startGame")
-            return
-        }
-
-        print("Starting game with \(teamManager.players.count) players")
         deck.reset()
         deck.shuffle()
         teamManager.reset()
 
-        // Clear any existing cards from players
+        // Reset player stats and cards for a new game
         for i in 0..<teamManager.players.count {
             teamManager.players[i].currentCard = nil
             teamManager.players[i].cardsDrawn = []
+            teamManager.players[i].cardProcessingTimes = []
+            teamManager.players[i].currentCardDrawTime = nil
         }
 
-        // Start timer if a limit is set
         if timerManager.timeLimit > 0 {
             timerManager.start()
         }
 
-        // Change game state to trigger UI update
         gameState = .playing
-        print("Game started successfully, state is now: \(gameState)")
     }
 
     func pauseGame() {
@@ -88,31 +80,51 @@ class GameManager: ObservableObject {
     }
 
     func endGame() {
-        gameState = .setup
         timerManager.stop()
+
+        // Finalize stats for any player with an active card
         for i in 0..<teamManager.players.count {
-            teamManager.players[i].currentCard = nil
+            if let drawTime = teamManager.players[i].currentCardDrawTime {
+                let timeSpent = Date().timeIntervalSince(drawTime)
+                teamManager.players[i].cardProcessingTimes.append(timeSpent)
+                teamManager.players[i].currentCardDrawTime = nil // Clear the time to prevent re-counting
+            }
         }
+
+        gameState = .finished
+    }
+
+    func resetGame() {
+        deck.reset()
+        teamManager.players = []
+        timerManager.reset()
+        gameState = .setup
     }
 
     func drawCardForPlayer(_ playerId: UUID) {
-        print("drawCardForPlayer called for player: \(playerId)")
-        print("Current game state: \(gameState)")
+        guard gameState == .playing else { return }
 
-        guard gameState == .playing else {
-            print("Cannot draw card - game state is not playing")
-            return
+        // Find the player and update their stats for the previous card
+        if let playerIndex = teamManager.players.firstIndex(where: { $0.id == playerId }) {
+            if let drawTime = teamManager.players[playerIndex].currentCardDrawTime {
+                let timeSpent = Date().timeIntervalSince(drawTime)
+                teamManager.players[playerIndex].cardProcessingTimes.append(timeSpent)
+            }
         }
 
+        // Draw the new card
         if let card = deck.drawCard() {
-            print("Drew card: \(card.displayText)")
             teamManager.setCurrentCard(for: playerId, card: card)
+            // After setting the new card, also set its draw time
+            if let playerIndex = teamManager.players.firstIndex(where: { $0.id == playerId }) {
+                teamManager.players[playerIndex].currentCardDrawTime = Date()
+            }
+
             if deck.isExhausted {
-                print("Deck exhausted, resetting...")
                 deck.reset()
             }
         } else {
-            print("Failed to draw card from deck")
+            // Handle case where deck is empty and cannot draw
         }
     }
 

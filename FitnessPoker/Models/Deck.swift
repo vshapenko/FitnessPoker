@@ -23,8 +23,8 @@ class Deck: ObservableObject {
             }
         }
 
-        deck.append(Card(joker: true))
-        deck.append(Card(joker: true))
+        deck.append(Card(jokerIdentifier: "Joker 1"))
+        deck.append(Card(jokerIdentifier: "Joker 2"))
 
         return deck
     }

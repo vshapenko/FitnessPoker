@@ -27,9 +27,11 @@ struct Exercise: Identifiable, Codable, Equatable {
 
 class ExerciseManager: ObservableObject {
     @Published var suitExercises: [Suit: Exercise] = [:]
-    @Published var jokerExercise: Exercise = Exercise.defaultExercises[2]
+    @Published var jokerExercises: [String: Exercise] = [:]
     @Published var customExercises: [Exercise] = []
     @Published var allAvailableExercises: [Exercise] = []
+
+    private let jokerIds = ["Joker 1", "Joker 2"]
 
     init() {
         loadExercises()
@@ -48,20 +50,23 @@ class ExerciseManager: ObservableObject {
             .clubs: defaultExercises[2],
             .spades: defaultExercises[3]
         ]
-        jokerExercise = defaultExercises[4]
+        jokerExercises = [
+            jokerIds[0]: defaultExercises[4],
+            jokerIds[1]: defaultExercises[5]
+        ]
     }
 
     func setExercise(for suit: Suit, exercise: Exercise) {
         suitExercises[suit] = exercise
     }
 
-    func setJokerExercise(_ exercise: Exercise) {
-        jokerExercise = exercise
+    func setJokerExercise(for identifier: String, exercise: Exercise) {
+        jokerExercises[identifier] = exercise
     }
 
     func getExercise(for card: Card) -> Exercise? {
-        if card.isJoker {
-            return jokerExercise
+        if let jokerId = card.jokerIdentifier {
+            return jokerExercises[jokerId]
         }
         guard let suit = card.suit else { return nil }
         return suitExercises[suit]
@@ -83,8 +88,11 @@ class ExerciseManager: ObservableObject {
                 suitExercises[suit] = Exercise.defaultExercises[0]
             }
         }
-        if jokerExercise.id == exercise.id {
-            jokerExercise = Exercise.defaultExercises[4]
+        // Update joker assignments if they were using the removed exercise
+        for id in jokerIds {
+            if jokerExercises[id]?.id == exercise.id {
+                jokerExercises[id] = Exercise.defaultExercises[4]
+            }
         }
     }
 

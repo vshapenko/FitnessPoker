@@ -7,6 +7,8 @@ struct Player: Identifiable, Equatable {
     var isActive: Bool = true
     var currentCard: Card?
     var cardsDrawn: [Card] = []
+    var cardProcessingTimes: [TimeInterval] = []
+    var currentCardDrawTime: Date?
 
     init(name: String) {
         self.name = name

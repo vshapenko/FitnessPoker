@@ -52,18 +52,22 @@ struct Card: Identifiable, Equatable, Codable {
     let id = UUID()
     let suit: Suit?
     let rank: Rank?
-    let isJoker: Bool
+    let jokerIdentifier: String?
 
     init(suit: Suit, rank: Rank) {
         self.suit = suit
         self.rank = rank
-        self.isJoker = false
+        self.jokerIdentifier = nil
     }
 
-    init(joker: Bool = true) {
+    init(jokerIdentifier: String) {
         self.suit = nil
         self.rank = nil
-        self.isJoker = joker
+        self.jokerIdentifier = jokerIdentifier
+    }
+
+    var isJoker: Bool {
+        return jokerIdentifier != nil
     }
 
     var displayText: String {
