@@ -345,6 +345,10 @@ struct PausedView: View {
 struct ExerciseSetupView: View {
     @ObservedObject var exerciseManager: ExerciseManager
     @Environment(\.presentationMode) var presentationMode
+    @State private var showingExercisePicker = false
+    @State private var selectedSuit: Suit?
+    @State private var isSelectingForJoker = false
+    @State private var showingNewExerciseSheet = false
 
     var body: some View {
         NavigationView {
@@ -361,6 +365,14 @@ struct ExerciseSetupView: View {
                                 Text(exercise.name)
                                     .foregroundColor(.secondary)
                             }
+
+                            Button("Change") {
+                                selectedSuit = suit
+                                isSelectingForJoker = false
+                                showingExercisePicker = true
+                            }
+                            .buttonStyle(.bordered)
+                            .font(.caption)
                         }
                     }
                 }
@@ -374,7 +386,44 @@ struct ExerciseSetupView: View {
 
                         Text(exerciseManager.jokerExercise.name)
                             .foregroundColor(.secondary)
+
+                        Button("Change") {
+                            isSelectingForJoker = true
+                            selectedSuit = nil
+                            showingExercisePicker = true
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.caption)
                     }
+                }
+
+                Section("Custom Exercises") {
+                    ForEach(exerciseManager.customExercises) { exercise in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(exercise.name)
+                                    .font(.headline)
+
+                                Spacer()
+
+                                Button("Delete") {
+                                    exerciseManager.removeCustomExercise(exercise)
+                                }
+                                .foregroundColor(.red)
+                                .font(.caption)
+                            }
+
+                            Text(exercise.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+
+                    Button("Add New Exercise") {
+                        showingNewExerciseSheet = true
+                    }
+                    .foregroundColor(.blue)
                 }
             }
             .navigationTitle("Exercise Setup")
@@ -384,6 +433,131 @@ struct ExerciseSetupView: View {
                     exerciseManager.resetToDefaults()
                 },
                 trailing: Button("Done") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+            .sheet(isPresented: $showingExercisePicker) {
+                ExercisePickerView(
+                    exerciseManager: exerciseManager,
+                    selectedSuit: selectedSuit,
+                    isSelectingForJoker: isSelectingForJoker
+                )
+            }
+            .sheet(isPresented: $showingNewExerciseSheet) {
+                NewExerciseView(exerciseManager: exerciseManager)
+            }
+        }
+    }
+}
+
+struct ExercisePickerView: View {
+    @ObservedObject var exerciseManager: ExerciseManager
+    @Environment(\.presentationMode) var presentationMode
+    let selectedSuit: Suit?
+    let isSelectingForJoker: Bool
+
+    var body: some View {
+        NavigationView {
+            List {
+                Section("Default Exercises") {
+                    ForEach(Exercise.defaultExercises) { exercise in
+                        ExerciseRow(exercise: exercise) {
+                            selectExercise(exercise)
+                        }
+                    }
+                }
+
+                if !exerciseManager.customExercises.isEmpty {
+                    Section("Custom Exercises") {
+                        ForEach(exerciseManager.customExercises) { exercise in
+                            ExerciseRow(exercise: exercise) {
+                                selectExercise(exercise)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Choose Exercise")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+        }
+    }
+
+    private func selectExercise(_ exercise: Exercise) {
+        if isSelectingForJoker {
+            exerciseManager.setJokerExercise(exercise)
+        } else if let suit = selectedSuit {
+            exerciseManager.setExercise(for: suit, exercise: exercise)
+        }
+        presentationMode.wrappedValue.dismiss()
+    }
+}
+
+struct ExerciseRow: View {
+    let exercise: Exercise
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(exercise.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                }
+
+                Text(exercise.description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+struct NewExerciseView: View {
+    @ObservedObject var exerciseManager: ExerciseManager
+    @Environment(\.presentationMode) var presentationMode
+    @State private var exerciseName = ""
+    @State private var exerciseDescription = ""
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Exercise Details")) {
+                    TextField("Exercise Name", text: $exerciseName)
+                    TextField("Description", text: $exerciseDescription)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                Section {
+                    Button("Add Exercise") {
+                        if !exerciseName.isEmpty && !exerciseDescription.isEmpty {
+                            exerciseManager.addCustomExercise(
+                                name: exerciseName,
+                                description: exerciseDescription
+                            )
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    }
+                    .disabled(exerciseName.isEmpty || exerciseDescription.isEmpty)
+                }
+            }
+            .navigationTitle("New Exercise")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("Cancel") {
                     presentationMode.wrappedValue.dismiss()
                 }
             )
