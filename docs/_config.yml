@@ -1,0 +1,26 @@
+# GitHub Pages Configuration for FitnessPoker
+theme: null
+title: FitnessPoker - Gamify Your Workout
+description: Transform your workout routine into an exciting card game! Draw cards, perform exercises, and compete with friends.
+url: https://yourusername.github.io
+baseurl: /FitnessPoker
+
+# SEO and Social Media
+author: FitnessPoker
+twitter:
+  username:
+  card: summary_large_image
+logo: /assets/images/app-icon.png
+
+# Build settings
+markdown: kramdown
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# Exclude files from build
+exclude:
+  - README.md
+  - LICENSE
+  - Gemfile
+  - Gemfile.lock
