@@ -131,4 +131,11 @@ class GameManager: ObservableObject {
     func getExercise(for card: Card) -> Exercise? {
         return exerciseManager.getExercise(for: card)
     }
+
+    func getExerciseCount(for card: Card) -> Int {
+        if let jokerId = card.jokerIdentifier {
+            return exerciseManager.getJokerRepetitions(for: jokerId)
+        }
+        return card.exerciseCount
+    }
 }

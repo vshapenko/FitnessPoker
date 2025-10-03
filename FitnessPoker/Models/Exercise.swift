@@ -28,6 +28,7 @@ struct Exercise: Identifiable, Codable, Equatable {
 class ExerciseManager: ObservableObject {
     @Published var suitExercises: [Suit: Exercise] = [:]
     @Published var jokerExercises: [String: Exercise] = [:]
+    @Published var jokerRepetitions: [String: Int] = [:]
     @Published var customExercises: [Exercise] = []
     @Published var allAvailableExercises: [Exercise] = []
 
@@ -54,14 +55,23 @@ class ExerciseManager: ObservableObject {
             jokerIds[0]: defaultExercises[4],
             jokerIds[1]: defaultExercises[5]
         ]
+        jokerRepetitions = [
+            jokerIds[0]: 20,
+            jokerIds[1]: 20
+        ]
     }
 
     func setExercise(for suit: Suit, exercise: Exercise) {
         suitExercises[suit] = exercise
     }
 
-    func setJokerExercise(for identifier: String, exercise: Exercise) {
+    func setJokerExercise(for identifier: String, exercise: Exercise, repetitions: Int = 20) {
         jokerExercises[identifier] = exercise
+        jokerRepetitions[identifier] = repetitions
+    }
+
+    func getJokerRepetitions(for identifier: String) -> Int {
+        return jokerRepetitions[identifier] ?? 20
     }
 
     func getExercise(for card: Card) -> Exercise? {

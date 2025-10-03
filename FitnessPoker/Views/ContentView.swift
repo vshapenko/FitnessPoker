@@ -18,8 +18,6 @@ struct ContentView: View {
                 case .finished:
                     GameFinishedView(gameManager: gameManager)
                 }
-
-                Spacer()
             }
             .padding()
             .navigationTitle("Fitness Poker")
@@ -107,7 +105,7 @@ struct PlayerStatsDetailView: View {
                             let (card, time) = element
                             HStack {
                                 if let exercise = gameManager.getExercise(for: card) {
-                                    Text("\(index + 1). \(card.displayText): \(card.exerciseCount) \(exercise.name)")
+                                    Text("\(index + 1). \(card.displayText): \(gameManager.getExerciseCount(for: card)) \(exercise.name)")
                                 } else {
                                     Text("\(index + 1). \(card.displayText): No exercise assigned")
                                 }
@@ -395,88 +393,103 @@ struct PlayingView: View {
     @ObservedObject var gameManager: GameManager
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Players")
-                .font(.title2)
-                .fontWeight(.semibold)
+        GeometryReader { geometry in
+            VStack(spacing: 10) {
+                Text("Players")
+                    .font(.title3)
+                    .fontWeight(.semibold)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 15) {
-                ForEach(gameManager.teamManager.players, id: \.id) { player in
-                    PlayerGameCard(player: player, gameManager: gameManager)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 12) {
+                    ForEach(gameManager.teamManager.players, id: \.id) { player in
+                        PlayerGameCard(
+                            player: player,
+                            gameManager: gameManager,
+                            availableHeight: calculateCardHeight(for: geometry.size, playerCount: gameManager.teamManager.players.count)
+                        )
+                    }
+                }
+
+                HStack(spacing: 20) {
+                    Button("Pause Game") {
+                        gameManager.pauseGame()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("End Game") {
+                        gameManager.endGame()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .foregroundColor(.red)
                 }
             }
-
-            HStack(spacing: 20) {
-                Button("Pause Game") {
-                    gameManager.pauseGame()
-                }
-                .buttonStyle(.bordered)
-
-                Button("End Game") {
-                    gameManager.endGame()
-                }
-                .buttonStyle(.borderedProminent)
-                .foregroundColor(.red)
-            }
-            .padding(.top)
         }
+    }
+
+    private func calculateCardHeight(for size: CGSize, playerCount: Int) -> CGFloat {
+        let titleHeight: CGFloat = 30
+        let buttonHeight: CGFloat = 50
+        let spacing: CGFloat = 10
+        let gridSpacing: CGFloat = 12
+
+        let availableHeight = size.height - titleHeight - buttonHeight - (spacing * 2)
+
+        // Calculate rows (2 columns max, so divide by 2 rounded up)
+        let rows = ceil(Double(playerCount) / 2.0)
+        let totalSpacing = gridSpacing * (rows - 1)
+
+        return (availableHeight - totalSpacing) / CGFloat(rows)
     }
 }
 
 struct PlayerGameCard: View {
     let player: Player
     @ObservedObject var gameManager: GameManager
+    let availableHeight: CGFloat
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text(player.name)
-                    .font(.headline)
-                    .fontWeight(.semibold)
+        ZStack(alignment: .top) {
+            if let card = player.currentCard {
+                CardView(
+                    card: card,
+                    exercise: gameManager.getExercise(for: card),
+                    exerciseCount: gameManager.getExerciseCount(for: card),
+                    playerName: player.name,
+                    cardsDrawn: player.cardsDrawn.count
+                )
+            } else {
+                VStack(spacing: 10) {
+                    HStack {
+                        Text(player.name)
+                            .font(.headline)
+                            .fontWeight(.semibold)
 
-                Spacer()
+                        Spacer()
 
-                Text("Cards: \(player.cardsDrawn.count)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-
-            VStack {
-                if let card = player.currentCard {
-                    CardView(card: card)
-                        .scaleEffect(0.8)
-
-                    if let exercise = gameManager.getExercise(for: card) {
-                        VStack(spacing: 5) {
-                            Text("\(card.exerciseCount) \(exercise.name)")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .multilineTextAlignment(.center)
-
-                            Text(exercise.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.horizontal, 4)
-                    }
-                } else {
-                    VStack(spacing: 10) {
-                        Image(systemName: "rectangle.stack")
-                            .font(.system(size: 40))
-                            .foregroundColor(.gray)
-                        Text("Tap to Draw")
-                            .font(.caption)
+                        Text("Cards: \(player.cardsDrawn.count)")
+                            .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 12)
+
+                    Spacer()
+
+                    Image(systemName: "rectangle.stack")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray)
+                    Text("Tap to Draw")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGray6))
+                .cornerRadius(15)
             }
-            .frame(height: 150)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(15)
-        .contentShape(Rectangle()) // Makes the whole area tappable, including blank space
+        .frame(height: availableHeight)
+        .contentShape(Rectangle())
         .onTapGesture {
             gameManager.drawCardForPlayer(player.id)
         }
@@ -485,24 +498,84 @@ struct PlayerGameCard: View {
 
 struct CardView: View {
     let card: Card
+    var exercise: Exercise? = nil
+    var exerciseCount: Int? = nil
+    var playerName: String? = nil
+    var cardsDrawn: Int? = nil
 
     var body: some View {
-        VStack {
-            Text(card.displayText)
-                .font(.system(size: 50))
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                // Card background
+                RoundedRectangle(cornerRadius: 15)
+                    .fill(Color.white)
+                    .shadow(radius: 3)
 
-            if !card.isJoker, let suit = card.suit {
-                Text(suit.name)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                VStack(spacing: 0) {
+                    // Header with player info
+                    if let name = playerName, let count = cardsDrawn {
+                        HStack {
+                            Text(name)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+
+                            Spacer()
+
+                            Text("Cards: \(count)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                    }
+
+                    Spacer()
+
+                    // Card content
+                    VStack(spacing: 5) {
+                        Text(card.displayText)
+                            .font(.system(size: min(geometry.size.width * 0.4, geometry.size.height * 0.3)))
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+
+                        if let exercise = exercise, let count = exerciseCount {
+                            Text("\(count) \(exercise.name)")
+                                .font(.system(size: min(geometry.size.width * 0.11, geometry.size.height * 0.11)))
+                                .fontWeight(.semibold)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.7)
+                                .padding(.horizontal, 8)
+                                .padding(.top, 4)
+                        }
+                    }
+
+                    Spacer()
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .frame(width: 100, height: 120)
-        .background(Color.white)
-        .cornerRadius(10)
-        .shadow(radius: 3)
+    }
+}
+
+// Helper extension for rounded corners on specific corners
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners))
+    }
+}
+
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
     }
 }
 
@@ -591,26 +664,33 @@ struct ExerciseSetupView: View {
 
                         VStack(spacing: 8) {
                             ForEach(jokerIds, id: \.self) { jokerId in
-                                HStack {
-                                    Text("🃏 \(jokerId)")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
+                                VStack(spacing: 4) {
+                                    HStack {
+                                        Text("🃏 \(jokerId)")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
 
-                                    Spacer()
+                                        Spacer()
 
-                                    if let exercise = exerciseManager.jokerExercises[jokerId] {
-                                        Text(exercise.name)
-                                            .foregroundColor(.secondary)
-                                            .font(.caption)
+                                        if let exercise = exerciseManager.jokerExercises[jokerId] {
+                                            VStack(alignment: .trailing, spacing: 2) {
+                                                Text(exercise.name)
+                                                    .foregroundColor(.secondary)
+                                                    .font(.caption)
+                                                Text("\(exerciseManager.getJokerRepetitions(for: jokerId)) reps")
+                                                    .foregroundColor(.secondary)
+                                                    .font(.caption2)
+                                            }
+                                        }
+
+                                        Button("Change") {
+                                            selectedJokerId = jokerId
+                                            selectedSuit = nil
+                                            showingExercisePicker = true
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .font(.caption)
                                     }
-
-                                    Button("Change") {
-                                        selectedJokerId = jokerId
-                                        selectedSuit = nil
-                                        showingExercisePicker = true
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .font(.caption)
                                 }
                                 .padding(.horizontal)
                                 .padding(.vertical, 8)
@@ -702,29 +782,73 @@ struct ExercisePickerView: View {
     @Environment(\.dismiss) var dismiss
     let selectedSuit: Suit?
     let selectedJokerId: String?
+    @State private var selectedExercise: Exercise?
+    @State private var repetitions: String = ""
+    @State private var showingRepetitionInput = false
 
     var body: some View {
         NavigationView {
-            List {
-                Section("Default Exercises") {
-                    ForEach(Exercise.defaultExercises) { exercise in
-                        ExerciseRow(exercise: exercise) {
-                            selectExercise(exercise)
-                        }
-                    }
-                }
-
-                if !exerciseManager.customExercises.isEmpty {
-                    Section("Custom Exercises") {
-                        ForEach(exerciseManager.customExercises) { exercise in
+            ZStack {
+                List {
+                    Section("Default Exercises") {
+                        ForEach(Exercise.defaultExercises) { exercise in
                             ExerciseRow(exercise: exercise) {
                                 selectExercise(exercise)
                             }
                         }
                     }
+
+                    if !exerciseManager.customExercises.isEmpty {
+                        Section("Custom Exercises") {
+                            ForEach(exerciseManager.customExercises) { exercise in
+                                ExerciseRow(exercise: exercise) {
+                                    selectExercise(exercise)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if showingRepetitionInput, selectedJokerId != nil {
+                    ZStack {
+                        Color.black.opacity(0.4)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                showingRepetitionInput = false
+                            }
+
+                        VStack(spacing: 15) {
+                            Text("Set Repetitions")
+                                .font(.headline)
+
+                            TextField("Repetitions", text: $repetitions)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .keyboardType(.numberPad)
+                                .frame(width: 150)
+                                .multilineTextAlignment(.center)
+
+                            HStack(spacing: 15) {
+                                Button("Cancel") {
+                                    showingRepetitionInput = false
+                                }
+                                .buttonStyle(.bordered)
+
+                                Button("Confirm") {
+                                    confirmSelection()
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(repetitions.isEmpty)
+                            }
+                        }
+                        .padding(25)
+                        .background(Color(.systemBackground))
+                        .cornerRadius(15)
+                        .shadow(radius: 10)
+                        .frame(maxWidth: 300)
+                    }
                 }
             }
-            .navigationTitle("Choose Exercise")
+            .navigationTitle(selectedJokerId != nil ? "Choose Exercise & Reps" : "Choose Exercise")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -733,15 +857,28 @@ struct ExercisePickerView: View {
                     }
                 }
             }
+            .onAppear {
+                if let jokerId = selectedJokerId {
+                    repetitions = String(exerciseManager.getJokerRepetitions(for: jokerId))
+                }
+            }
         }
     }
 
     private func selectExercise(_ exercise: Exercise) {
-        if let jokerId = selectedJokerId {
-            exerciseManager.setJokerExercise(for: jokerId, exercise: exercise)
+        if selectedJokerId != nil {
+            selectedExercise = exercise
+            showingRepetitionInput = true
         } else if let suit = selectedSuit {
             exerciseManager.setExercise(for: suit, exercise: exercise)
+            dismiss()
         }
+    }
+
+    private func confirmSelection() {
+        guard let exercise = selectedExercise, let jokerId = selectedJokerId else { return }
+        let reps = Int(repetitions) ?? 20
+        exerciseManager.setJokerExercise(for: jokerId, exercise: exercise, repetitions: reps)
         dismiss()
     }
 }

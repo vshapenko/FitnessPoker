@@ -80,10 +80,14 @@ struct Card: Identifiable, Equatable, Codable {
         return "\(rank.symbol)\(suit.rawValue)"
     }
 
-    var exerciseCount: Int {
+    var defaultExerciseCount: Int {
         if isJoker {
-            return 10
+            return 20
         }
         return rank?.value ?? 0
+    }
+
+    var exerciseCount: Int {
+        return defaultExerciseCount
     }
 }
